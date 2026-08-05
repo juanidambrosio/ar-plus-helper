@@ -6,16 +6,19 @@ from telegram.ext import ContextTypes
 
 from bot.ar_client import ARApiError, ARClient
 from bot.baggage import BaggageResolver
-from bot.format import format_results
-from bot.parse import parse_query
-from bot.rank import rank_offers
+from bot.format import format_results, format_round_trip_results
+from bot.parse import FlightQuery, RoundTripQuery, parse_query
+from bot.rank import rank_offers, rank_round_trips
 
 logger = logging.getLogger(__name__)
 
 HELP_TEXT = (
     "Enviá un query de aeropuerto a aeropuerto:\n"
-    "`EZE COR 2026-09`\n\n"
-    "Formato: `ORIG DEST YYYY-MM`"
+    "`EZE COR 2026-09`\n"
+    "`EZE COR 2026-09-01 2026-10-01 d7 D14`\n\n"
+    "Ida: `ORIG DEST YYYY-MM`\n"
+    "Ida y vuelta: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN]`\n"
+    "`dN` = mínimo de días, `DN` = máximo (opcional, máx. 90)"
 )
 
 
@@ -40,7 +43,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     query = parse_query(text)
     if query is None:
         await update.message.reply_text(
-            "No entendí el query.\nUsá: `EZE COR 2026-09`",
+            "No entendí el query.\n"
+            "Ida: `EZE COR 2026-09`\n"
+            "Ida y vuelta: `EZE COR 2026-09-01 2026-10-01 d7 D14`",
             parse_mode="Markdown",
         )
         return
@@ -52,9 +57,23 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     await update.message.chat.send_action("typing")
     try:
-        payload = await client.fetch_offers(query)
-        offers = rank_offers(payload, mile_value=mile_value, limit=10)
-        reply = format_results(query, offers, baggage)
+        if isinstance(query, RoundTripQuery):
+            calendars = await client.fetch_round_trip_calendars(query)
+            pairs = rank_round_trips(
+                calendars,
+                min_departure=query.min_departure,
+                max_return=query.max_return,
+                min_days=query.min_days,
+                max_days=query.max_days,
+                mile_value=mile_value,
+                limit=10,
+            )
+            reply = format_round_trip_results(query, pairs, baggage)
+        else:
+            assert isinstance(query, FlightQuery)
+            payload = await client.fetch_offers(query)
+            offers = rank_offers(payload, mile_value=mile_value, limit=10)
+            reply = format_results(query, offers, baggage)
         await update.message.reply_text(
             reply,
             parse_mode="HTML",
@@ -62,10 +81,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
     except ARApiError as exc:
         logger.warning("AR API error: %s", exc)
-        await update.message.reply_text(str(exc))
+        if exc.status_code in (401, 403):
+            msg = "Bloqueado por AR Plus."
+        else:
+            msg = str(exc) or "Error interno, intentar nuevamente mas tarde"
+        await update.message.reply_text(msg)
     except Exception:
         logger.exception("Unhandled error for query %s", text)
-        await update.message.reply_text("Error inesperado al consultar vuelos.")
+        await update.message.reply_text(
+            "Error interno, intentar nuevamente mas tarde"
+        )
 
 
 def build_bot_data(

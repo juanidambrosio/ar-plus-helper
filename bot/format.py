@@ -2,8 +2,8 @@ from html import escape
 from urllib.parse import urlencode
 
 from bot.baggage import BaggageResolver
-from bot.parse import FlightQuery, display_airport
-from bot.rank import RankedOffer
+from bot.parse import FlightQuery, RoundTripQuery, display_airport
+from bot.rank import RankedOffer, RankedRoundTrip
 
 OFFERS_PAGE_BASE = "https://www.aerolineas.com.ar/flights-offers"
 
@@ -45,16 +45,44 @@ def departure_leg_date(departure: str) -> str:
 
 def offer_page_url(origin: str, destination: str, departure: str) -> str:
     leg = f"{origin.upper()}-{destination.upper()}-{departure_leg_date(departure)}"
-    params = {
-        "adt": "1",
-        "inf": "0",
-        "chd": "0",
-        "flexDates": "false",
-        "cabinClass": "Economy",
-        "flightType": "ONE_WAY",
-        "awardBooking": "true",
-        "leg": leg,
-    }
+    params = [
+        ("adt", "1"),
+        ("inf", "0"),
+        ("chd", "0"),
+        ("flexDates", "false"),
+        ("cabinClass", "Economy"),
+        ("flightType", "ONE_WAY"),
+        ("awardBooking", "true"),
+        ("leg", leg),
+    ]
+    return f"{OFFERS_PAGE_BASE}?{urlencode(params)}"
+
+
+def round_trip_offer_page_url(
+    origin: str,
+    destination: str,
+    outbound_departure: str,
+    return_departure: str,
+) -> str:
+    out_leg = (
+        f"{origin.upper()}-{destination.upper()}-"
+        f"{departure_leg_date(outbound_departure)}"
+    )
+    ret_leg = (
+        f"{destination.upper()}-{origin.upper()}-"
+        f"{departure_leg_date(return_departure)}"
+    )
+    params = [
+        ("adt", "1"),
+        ("inf", "0"),
+        ("chd", "0"),
+        ("flexDates", "false"),
+        ("cabinClass", "Economy"),
+        ("flightType", "ROUND_TRIP"),
+        ("awardBooking", "true"),
+        ("leg", out_leg),
+        ("leg", ret_leg),
+    ]
     return f"{OFFERS_PAGE_BASE}?{urlencode(params)}"
 
 
@@ -62,21 +90,25 @@ def checked_bags_for_cabin(cabin_class: str) -> int:
     return 1 if (cabin_class or "").strip().upper() == "BUSINESS" else 0
 
 
+def format_leg_details(offer: RankedOffer) -> str:
+    checked_bags = checked_bags_for_cabin(offer.cabin_class)
+    return (
+        f"{offer.miles} + {format_taxes(offer.taxes)}, "
+        f"{escape(offer.cabin_class)},{format_stops(offer.stops)},"
+        f"{format_duration(offer.duration_minutes)},"
+        f"💺{offer.seats}🧳{checked_bags}"
+    )
+
+
 def format_offer_line(
     offer: RankedOffer,
     query: FlightQuery,
     baggage: BaggageResolver,
 ) -> str:
-    checked_bags = checked_bags_for_cabin(offer.cabin_class)
     date_label = escape(format_date(offer.departure))
     url = escape(offer_page_url(query.origin, query.destination, offer.departure))
     date_link = f'<a href="{url}">{date_label}</a>'
-    return (
-        f"✈️{date_link}: {offer.miles} + {format_taxes(offer.taxes)}, "
-        f"{escape(offer.cabin_class)},{format_stops(offer.stops)},"
-        f"{format_duration(offer.duration_minutes)},"
-        f"💺{offer.seats}🧳{checked_bags}"
-    )
+    return f"✈️{date_link}: {format_leg_details(offer)}"
 
 
 def format_results(
@@ -88,6 +120,43 @@ def format_results(
     dest = display_airport(query.destination)
     header = escape(f"{origin} {dest} {query.year_month}")
     if not offers:
-        return f"{header}\nSin ofertas disponibles."
+        return "No se encontraron ofertas para este tramo."
     lines = [header] + [format_offer_line(o, query, baggage) for o in offers]
     return "\n".join(lines)
+
+
+def format_round_trip_line(
+    pair: RankedRoundTrip,
+    query: RoundTripQuery,
+    baggage: BaggageResolver,
+) -> str:
+    out_label = escape(format_date(pair.outbound.departure))
+    ret_label = escape(format_date(pair.return_offer.departure))
+    url = escape(
+        round_trip_offer_page_url(
+            query.origin,
+            query.destination,
+            pair.outbound.departure,
+            pair.return_offer.departure,
+        )
+    )
+    dates_link = f'<a href="{url}">{out_label}→{ret_label}</a>'
+    return (
+        f"✈️{dates_link}: {pair.miles} + {format_taxes(pair.taxes)}\n"
+        f" → {format_leg_details(pair.outbound)}\n"
+        f" ← {format_leg_details(pair.return_offer)}"
+    )
+
+
+def format_round_trip_results(
+    query: RoundTripQuery,
+    pairs: list[RankedRoundTrip],
+    baggage: BaggageResolver,
+) -> str:
+    origin = display_airport(query.origin)
+    dest = display_airport(query.destination)
+    header = escape(f"{origin} {dest} {query.window_label}")
+    if not pairs:
+        return "No se encontraron ofertas para este tramo."
+    blocks = [format_round_trip_line(p, query, baggage) for p in pairs]
+    return "\n".join([header] + blocks)
