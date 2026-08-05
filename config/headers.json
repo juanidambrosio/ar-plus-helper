@@ -1,0 +1,14 @@
+{
+  "Accept": "application/json, text/plain, */*",
+  "Accept-Encoding": "gzip, deflate, br, zstd",
+  "Accept-Language": "es-AR",
+  "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik1EaEdRa0U0T0RNeE56WTRRemcxTVRjMVJERXhOekF5T0RCRU1EUTVSakl6TURjNU5qVTVNQSJ9.eyJodHRwczovL2Flcm9saW5lYXMuY29tLmFyL25vbmNlIjoiMTc4NTg1NjQ3NDk0Ni03MTA1NSIsImlzcyI6Imh0dHBzOi8vYWVyb2xpbmVhcy10ZXN0LmF1dGgwLmNvbS8iLCJzdWIiOiJveTgxWlVuNklYMWd2NGVHY2VTRkl5YUZmaEg2YTY2R0BjbGllbnRzIiwiYXVkIjoiYXItYXV0aCIsImlhdCI6MTc4NTg1NjQ3NCwiZXhwIjoxNzg1OTQyODc0LCJzY29wZSI6ImNhdGFsb2c6cmVhZCBjYXRhbG9nOmFkbWluIHJ1bGVzOnBheW1lbnQ6cmVhZCBydWxlczpzaG9wcGluZzpyZWFkIHJ1bGVzOmNoZWNrb3V0OnJlYWQgbG95YWx0eTpyZWFkIGxveWFsdHk6YWRtaW4gY2F0YWxvZzpwYXltZW50OnJlYWQgc3VibG9zOnJlYWQgZm9ybXM6cmVhZCBmb3JtczphZG1pbiIsImd0eSI6ImNsaWVudC1jcmVkZW50aWFscyIsImF6cCI6Im95ODFaVW42SVgxZ3Y0ZUdjZVNGSXlhRmZoSDZhNjZHIiwicGVybWlzc2lvbnMiOlsiY2F0YWxvZzpyZWFkIiwiY2F0YWxvZzphZG1pbiIsInJ1bGVzOnBheW1lbnQ6cmVhZCIsInJ1bGVzOnNob3BwaW5nOnJlYWQiLCJydWxlczpjaGVja291dDpyZWFkIiwibG95YWx0eTpyZWFkIiwibG95YWx0eTphZG1pbiIsImNhdGFsb2c6cGF5bWVudDpyZWFkIiwic3VibG9zOnJlYWQiLCJmb3JtczpyZWFkIiwiZm9ybXM6YWRtaW4iXX0.tuSNY-hb422g4ggenz4wyO0VAc6XhYYmGegwCZuuIVGIGRQCYjDhhewBzeJz6clnDlcNQXo-VDkGRGWap00FIR67Gah_Hj3tavBcMoOxK_vSMFtAgRzTWnoayDBY0f91ToaAI27UI7jlWZD907JqKAEVkJG3Vj34XhE7DHBl1VBVvv5YeXXTKoKtpl6aO1wZatfYxTl153ahP6wLY3QHA4KqDDRbWIuSaShXaQpAKQAHJemXkzbsYv1G7VwKGDeWfaIg2BIn-CdwxL7VvGwEb0QoJMaDCQGHonaHZq9D9urLckhB1hnug2ViQYhEC96RDU4IpKwk4aaO1QQ2f9GqBQ",
+  "Origin": "https://www.aerolineas.com.ar",
+  "Priority": "u=3, i",
+  "Referer": "https://www.aerolineas.com.ar/",
+  "Sec-Fetch-Dest": "empty",
+  "Sec-Fetch-Mode": "cors",
+  "Sec-Fetch-Site": "same-site",
+  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6 Safari/605.1.15",
+  "X-Channel-Id": "WEB_AR"
+}

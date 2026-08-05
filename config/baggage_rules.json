@@ -1,0 +1,18 @@
+{
+  "by_booking_class": {
+    "A": {"cabin": 1, "checked": 0},
+    "B": {"cabin": 1, "checked": 0},
+    "C": {"cabin": 1, "checked": 1},
+    "D": {"cabin": 1, "checked": 1},
+    "J": {"cabin": 2, "checked": 2},
+    "W": {"cabin": 1, "checked": 1}
+  },
+  "by_fare_basis_prefix": {
+    "A": {"cabin": 1, "checked": 0},
+    "Y": {"cabin": 1, "checked": 0},
+    "B": {"cabin": 1, "checked": 1},
+    "D": {"cabin": 1, "checked": 1},
+    "J": {"cabin": 2, "checked": 2}
+  },
+  "default": {"cabin": 1, "checked": 0}
+}
