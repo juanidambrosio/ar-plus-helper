@@ -3,6 +3,7 @@ from pathlib import Path
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from bot.alerts.repository import AlertRepository
 from bot.ar_client import ARApiError, ARClient
 from bot.baggage import BaggageResolver
 from bot.format import format_results, format_round_trip_results
@@ -12,11 +13,12 @@ from bot.rank import rank_offers, rank_round_trips
 HELP_TEXT = (
     "Enviá un query de aeropuerto a aeropuerto:\n"
     "`EZE COR 2026-09 ECO 1`\n"
-    "`EZE COR 2026-09-01 2026-10-01 d7 D14 EJE 2`\n\n"
-    "Ida: `ORIG DEST YYYY-MM [ECO|EJE] [1-9]`\n"
-    "Ida y vuelta: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN] [ECO|EJE] [1-9]`\n"
-    "`ECO` = económica, `EJE` = ejecutiva\n"
-    "`1-9` = cantidad de pasajeros"
+    "`EZE COR 2026-09-01 2026-10-01 d7 D14 PEC 2`\n\n"
+    "Ida: `ORIG DEST YYYY-MM [ECO|PEC] [1-9]`\n"
+    "Ida y vuelta: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN] [ECO|PEC] [1-9]`\n"
+    "`ECO` = económica, `PEC` = premium economy\n"
+    "`1-9` = cantidad de pasajeros\n\n"
+    "Alertas: `/alertas` · `/nuevaalerta ORIG DEST DATE_MIN DATE_MAX MAX_PRICE [ECO|PEC]`"
 )
 
 
@@ -43,7 +45,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text(
             "No entendí el query.\n"
             "Ida: `EZE COR 2026-09 ECO 1`\n"
-            "Ida y vuelta: `EZE COR 2026-09-01 2026-10-01 d7 D14 EJE 2`",
+            "Ida y vuelta: `EZE COR 2026-09-01 2026-10-01 d7 D14 PEC 2`",
             parse_mode="Markdown",
         )
         return
@@ -98,9 +100,13 @@ def build_bot_data(
     api_base: str,
     mile_value: float,
     baggage_rules: str | Path,
+    alert_repo: AlertRepository | None = None,
 ) -> dict:
-    return {
+    data = {
         "ar_client": ARClient(base_url=api_base, headers_file=headers_file),
         "baggage": BaggageResolver(baggage_rules),
         "mile_value": mile_value,
     }
+    if alert_repo is not None:
+        data["alert_repo"] = alert_repo
+    return data

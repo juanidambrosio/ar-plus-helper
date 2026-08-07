@@ -22,35 +22,35 @@ class ParseQueryTests(TestCase):
         self.assertEqual(query.passengers, 1)
 
     def test_one_way_parses_cabin_and_passengers(self):
-        query = parse_query("EZE COR 2026-09 EJE 2")
+        query = parse_query("EZE COR 2026-09 PEC 2")
 
         self.assertIsInstance(query, FlightQuery)
         assert isinstance(query, FlightQuery)
-        self.assertEqual(query.cabin_type, "EJE")
+        self.assertEqual(query.cabin_type, "PEC")
         self.assertEqual(query.passengers, 2)
 
     def test_one_way_parses_passengers_before_cabin(self):
-        query = parse_query("EZE COR 2026-09 2 EJE")
+        query = parse_query("EZE COR 2026-09 2 PEC")
 
         self.assertIsInstance(query, FlightQuery)
         assert isinstance(query, FlightQuery)
-        self.assertEqual(query.cabin_type, "EJE")
+        self.assertEqual(query.cabin_type, "PEC")
         self.assertEqual(query.passengers, 2)
 
     def test_round_trip_parses_cabin_and_passengers(self):
-        query = parse_query("EZE COR 2026-09-01 2026-10-01 d7 D14 EJE 3")
+        query = parse_query("EZE COR 2026-09-01 2026-10-01 d7 D14 PEC 3")
 
         self.assertIsInstance(query, RoundTripQuery)
         assert isinstance(query, RoundTripQuery)
-        self.assertEqual(query.cabin_type, "EJE")
+        self.assertEqual(query.cabin_type, "PEC")
         self.assertEqual(query.passengers, 3)
 
     def test_round_trip_parses_passengers_before_cabin(self):
-        query = parse_query("EZE COR 2026-09-01 2026-10-01 d7 D14 3 EJE")
+        query = parse_query("EZE COR 2026-09-01 2026-10-01 d7 D14 3 PEC")
 
         self.assertIsInstance(query, RoundTripQuery)
         assert isinstance(query, RoundTripQuery)
-        self.assertEqual(query.cabin_type, "EJE")
+        self.assertEqual(query.cabin_type, "PEC")
         self.assertEqual(query.passengers, 3)
 
     def test_round_trip_defaults_to_economy_and_one_passenger(self):
@@ -75,7 +75,7 @@ class ARClientParamsTests(TestCase):
             destination="COR",
             year=2026,
             month=9,
-            cabin_type="EJE",
+            cabin_type="PEC",
             passengers=3,
         )
         client = ARClient(base_url="https://example.com", headers_file="/tmp/headers.json")
@@ -92,7 +92,7 @@ class ARClientParamsTests(TestCase):
             destination="COR",
             year=2026,
             month=9,
-            cabin_type="EJE",
+            cabin_type="PEC",
             passengers=3,
         )
         client = ARClient(base_url="https://example.com", headers_file="/tmp/headers.json")
@@ -106,7 +106,7 @@ class ARClientParamsTests(TestCase):
                 ("inf", "0"),
                 ("chd", "0"),
                 ("flexDates", "true"),
-                ("cabinClass", "Business"),
+                ("cabinClass", "PremiumEconomy"),
                 ("flightType", "ONE_WAY"),
                 ("awardBooking", "true"),
                 ("leg", "EZE-COR-20260916"),

@@ -13,7 +13,7 @@ from bot.parse import (
 
 CABIN_CLASS_BY_TYPE = {
     "ECO": "Economy",
-    "EJE": "Business",
+    "PEC": "PremiumEconomy",
 }
 from bot.token import AccessTokenProvider, TokenError
 

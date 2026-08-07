@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
-CABIN_TYPES = {"ECO", "EJE"}
+CABIN_TYPES = {"ECO", "PEC"}
 ONE_WAY_RE = re.compile(
     r"^([A-Za-z]{3})\s+([A-Za-z]{3})\s+(\d{4})-(\d{2})$"
 )
@@ -119,6 +119,8 @@ def _parse_iso_date(value: str) -> date | None:
 
 def _parse_cabin_type(value: str) -> str | None:
     cabin = value.upper()
+    if cabin == "EJE":
+        cabin = "PEC"
     if cabin in CABIN_TYPES:
         return cabin
     return None

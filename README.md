@@ -29,10 +29,14 @@ cp headers.example.json config/headers.json
    - Copy request headers (Cookie, any `x-*`, User-Agent, etc.) into `config/headers.json` as a JSON object.
    - `Authorization` is fetched automatically from the site HTML (`window.__ACCESS_TOKEN__`) and refreshed on 401/403.
 
-6. Optional: set `AR_MILE_VALUE` (ARS per mile, default `15`) used to rank offers:
+6. Set `MONGODB_URI` in `.env` (local or Atlas). DB: `ar_plus_helper`, collection: `alerts`.
+
+7. Optional: set `AR_MILE_VALUE` (ARS per mile, default `15`) used to rank offers:
    `score = miles * AR_MILE_VALUE + taxes`.
 
-7. Fill real bag rules in `config/baggage_rules.json` when you have them.
+8. Fill real bag rules in `config/baggage_rules.json` when you have them.
+
+
 
 ## Run
 
@@ -49,7 +53,7 @@ python -m bot.main
 EZE COR 2026-09 ECO 1
 ```
 
-Format: `ORIG DEST YYYY-MM [ECO|EJE] [1-9]`
+Format: `ORIG DEST YYYY-MM [ECO|PEC] [1-9]`
 
 Calls:
 
@@ -58,16 +62,16 @@ Calls:
 ### Round-trip
 
 ```
-EZE COR 2026-09-01 2026-10-01 d7 D14 EJE 2
+EZE COR 2026-09-01 2026-10-01 d7 D14 PEC 2
 ```
 
-Format: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN] [ECO|EJE] [1-9]`
+Format: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN] [ECO|PEC] [1-9]`
 
 - First date = minimum outbound departure
 - Second date = maximum return departure
 - `dN` = minimum days between outbound and return (1–90)
 - `DN` = optional maximum days (≤90)
-- `ECO` / `EJE` = cabin type
+- `ECO` / `PEC` = cabin type
 - `1-9` = passengers
 
 Uses day **16** legs (same as one-way) so each call returns a full month calendar:
@@ -93,6 +97,32 @@ bue cor 2026-09-01→2026-10-01 d7 D14
 Date links open the RT offers page for that pair, e.g.:
 
 `https://www.aerolineas.com.ar/flights-offers?adt=1&inf=0&chd=0&flexDates=false&cabinClass=Economy&flightType=ROUND_TRIP&awardBooking=true&leg=EZE-COR-20260903&leg=COR-EZE-20260915`
+
+### Alerts
+
+```
+/alertas
+/nuevaalerta EZE MIA 2025-01-01 2025-02-01 100000
+/nuevaalerta EZE MIA 2025-01-01 2025-02-01 100000 PEC
+```
+
+- `/alertas` — menu: create, list, delete (inline buttons + confirm)
+- `/nuevaalerta ORIG DEST DATE_MIN DATE_MAX MAX_PRICE [ECO|PEC]`
+  - optional cabin defaults to `ECO`
+  - stored in MongoDB `ar_plus_helper.alerts` keyed by Telegram `user_id`
+
+### Daily alert checker (Lambda)
+
+```bash
+# local
+python -m bot.alerts.handler
+
+# deploy (needs serverless + serverless-python-requirements)
+export TELEGRAM_BOT_TOKEN=... MONGODB_URI=... AR_HEADERS_JSON="$(cat config/headers.json)"
+npx serverless deploy
+```
+
+EventBridge cron runs once a day: load alerts → dedupe AR month fetches → filter by date/max miles → Telegram notify top matches.
 
 ## Notes
 

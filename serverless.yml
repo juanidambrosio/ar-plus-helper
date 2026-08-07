@@ -1,0 +1,47 @@
+service: ar-plus-helper
+
+frameworkVersion: "4"
+
+provider:
+  name: aws
+  runtime: python3.11
+  stage: ${opt:stage, 'prod'}
+  region: ${opt:region, 'us-east-1'}
+  memorySize: 512
+  timeout: 300
+  environment:
+    TELEGRAM_BOT_TOKEN: ${env:TELEGRAM_BOT_TOKEN}
+    MONGODB_URI: ${env:MONGODB_URI}
+    AR_API_BASE: ${env:AR_API_BASE, 'https://api.aerolineas.com.ar/v1/flights/offers'}
+    AR_MILE_VALUE: ${env:AR_MILE_VALUE, '45.45'}
+    AR_HEADERS_JSON: ${env:AR_HEADERS_JSON, ''}
+    ALERT_MATCH_LIMIT: ${env:ALERT_MATCH_LIMIT, '5'}
+    LOG_LEVEL: ${env:LOG_LEVEL, 'INFO'}
+
+functions:
+  arPlusalertChecker:
+    handler: bot.alerts.handler.handler
+    description: Daily AR Plus alert price check and Telegram notify
+    events:
+      # 11:00 UTC daily (~08:00 ART)
+      - schedule: cron(0 11 * * ? *)
+
+custom:
+  pythonRequirements:
+    dockerizePip: false
+
+package:
+  patterns:
+    - "!.git/**"
+    - "!.venv/**"
+    - "!.env"
+    - "!.env.*"
+    - "!tests/**"
+    - "!**/__pycache__/**"
+    - "!**/*.pyc"
+    - "!node_modules/**"
+    - "!README.md"
+    - "!headers.example.json"
+    - "bot/**"
+    - "config/baggage_rules.json"
+    - "requirements.txt"

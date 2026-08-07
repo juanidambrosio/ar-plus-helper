@@ -9,7 +9,7 @@ OFFERS_PAGE_BASE = "https://www.aerolineas.com.ar/flights-offers"
 
 CABIN_CLASS_BY_TYPE = {
     "ECO": "Economy",
-    "EJE": "Business",
+    "PEC": "PremiumEconomy",
 }
 
 
@@ -104,7 +104,8 @@ def round_trip_offer_page_url(
 
 
 def checked_bags_for_cabin(cabin_class: str) -> int:
-    return 1 if (cabin_class or "").strip().upper() == "BUSINESS" else 0
+    cabin = (cabin_class or "").strip().upper().replace(" ", "")
+    return 1 if cabin in {"PREMIUMECONOMY", "BUSINESS"} else 0
 
 
 def format_leg_details(offer: RankedOffer) -> str:
