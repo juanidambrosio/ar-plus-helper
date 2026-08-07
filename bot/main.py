@@ -33,7 +33,7 @@ def main() -> None:
 
     logging.basicConfig(
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        level=logging.INFO,
+        level=logging.WARNING,
     )
 
     app = Application.builder().token(token).build()
@@ -49,7 +49,6 @@ def main() -> None:
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    logging.getLogger(__name__).info("Starting AR Plus helper bot")
     app.run_polling(allowed_updates=["message"])
 
 

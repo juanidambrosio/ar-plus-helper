@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 
 from telegram import Update
@@ -10,15 +9,14 @@ from bot.format import format_results, format_round_trip_results
 from bot.parse import FlightQuery, RoundTripQuery, parse_query
 from bot.rank import rank_offers, rank_round_trips
 
-logger = logging.getLogger(__name__)
-
 HELP_TEXT = (
     "Enviá un query de aeropuerto a aeropuerto:\n"
-    "`EZE COR 2026-09`\n"
-    "`EZE COR 2026-09-01 2026-10-01 d7 D14`\n\n"
-    "Ida: `ORIG DEST YYYY-MM`\n"
-    "Ida y vuelta: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN]`\n"
-    "`dN` = mínimo de días, `DN` = máximo (opcional, máx. 90)"
+    "`EZE COR 2026-09 ECO 1`\n"
+    "`EZE COR 2026-09-01 2026-10-01 d7 D14 EJE 2`\n\n"
+    "Ida: `ORIG DEST YYYY-MM [ECO|EJE] [1-9]`\n"
+    "Ida y vuelta: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN] [ECO|EJE] [1-9]`\n"
+    "`ECO` = económica, `EJE` = ejecutiva\n"
+    "`1-9` = cantidad de pasajeros"
 )
 
 
@@ -44,8 +42,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if query is None:
         await update.message.reply_text(
             "No entendí el query.\n"
-            "Ida: `EZE COR 2026-09`\n"
-            "Ida y vuelta: `EZE COR 2026-09-01 2026-10-01 d7 D14`",
+            "Ida: `EZE COR 2026-09 ECO 1`\n"
+            "Ida y vuelta: `EZE COR 2026-09-01 2026-10-01 d7 D14 EJE 2`",
             parse_mode="Markdown",
         )
         return
@@ -79,18 +77,19 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             parse_mode="HTML",
             disable_web_page_preview=True,
         )
+        print(text, flush=True)
     except ARApiError as exc:
-        logger.warning("AR API error: %s", exc)
         if exc.status_code in (401, 403):
             msg = "Bloqueado por AR Plus."
         else:
             msg = str(exc) or "Error interno, intentar nuevamente mas tarde"
         await update.message.reply_text(msg)
-    except Exception:
-        logger.exception("Unhandled error for query %s", text)
+        print(f"{text} -> error: {msg}", flush=True)
+    except Exception as exc:
         await update.message.reply_text(
             "Error interno, intentar nuevamente mas tarde"
         )
+        print(f"{text} -> error: {exc}", flush=True)
 
 
 def build_bot_data(

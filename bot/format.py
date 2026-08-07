@@ -7,6 +7,11 @@ from bot.rank import RankedOffer, RankedRoundTrip
 
 OFFERS_PAGE_BASE = "https://www.aerolineas.com.ar/flights-offers"
 
+CABIN_CLASS_BY_TYPE = {
+    "ECO": "Economy",
+    "EJE": "Business",
+}
+
 
 def format_taxes(taxes: int) -> str:
     if taxes >= 1000:
@@ -43,14 +48,24 @@ def departure_leg_date(departure: str) -> str:
     return departure.replace("-", "")[:8]
 
 
-def offer_page_url(origin: str, destination: str, departure: str) -> str:
+def _cabin_class(cabin_type: str) -> str:
+    return CABIN_CLASS_BY_TYPE.get((cabin_type or "").upper(), "Economy")
+
+
+def offer_page_url(
+    origin: str,
+    destination: str,
+    departure: str,
+    cabin_type: str,
+    passengers: int,
+) -> str:
     leg = f"{origin.upper()}-{destination.upper()}-{departure_leg_date(departure)}"
     params = [
-        ("adt", "1"),
+        ("adt", str(passengers)),
         ("inf", "0"),
         ("chd", "0"),
         ("flexDates", "false"),
-        ("cabinClass", "Economy"),
+        ("cabinClass", _cabin_class(cabin_type)),
         ("flightType", "ONE_WAY"),
         ("awardBooking", "true"),
         ("leg", leg),
@@ -63,6 +78,8 @@ def round_trip_offer_page_url(
     destination: str,
     outbound_departure: str,
     return_departure: str,
+    cabin_type: str,
+    passengers: int,
 ) -> str:
     out_leg = (
         f"{origin.upper()}-{destination.upper()}-"
@@ -73,11 +90,11 @@ def round_trip_offer_page_url(
         f"{departure_leg_date(return_departure)}"
     )
     params = [
-        ("adt", "1"),
+        ("adt", str(passengers)),
         ("inf", "0"),
         ("chd", "0"),
         ("flexDates", "false"),
-        ("cabinClass", "Economy"),
+        ("cabinClass", _cabin_class(cabin_type)),
         ("flightType", "ROUND_TRIP"),
         ("awardBooking", "true"),
         ("leg", out_leg),
@@ -106,7 +123,7 @@ def format_offer_line(
     baggage: BaggageResolver,
 ) -> str:
     date_label = escape(format_date(offer.departure))
-    url = escape(offer_page_url(query.origin, query.destination, offer.departure))
+    url = escape(offer_page_url(query.origin, query.destination, offer.departure, query.cabin_type, query.passengers))
     date_link = f'<a href="{url}">{date_label}</a>'
     return f"✈️{date_link}: {format_leg_details(offer)}"
 
@@ -138,6 +155,8 @@ def format_round_trip_line(
             query.destination,
             pair.outbound.departure,
             pair.return_offer.departure,
+            query.cabin_type,
+            query.passengers,
         )
     )
     dates_link = f'<a href="{url}">{out_label}→{ret_label}</a>'

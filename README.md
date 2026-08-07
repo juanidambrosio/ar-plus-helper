@@ -26,7 +26,8 @@ cp headers.example.json config/headers.json
 5. Export browser headers into `config/headers.json` (keys alphabetical):
    - Open [aerolineas.com.ar](https://www.aerolineas.com.ar) and search an award flight.
    - DevTools → Network → the `offers` request to `api.aerolineas.com.ar`.
-   - Copy request headers (Cookie, Authorization, any `x-*`, User-Agent, etc.) into `config/headers.json` as a JSON object.
+   - Copy request headers (Cookie, any `x-*`, User-Agent, etc.) into `config/headers.json` as a JSON object.
+   - `Authorization` is fetched automatically from the site HTML (`window.__ACCESS_TOKEN__`) and refreshed on 401/403.
 
 6. Optional: set `AR_MILE_VALUE` (ARS per mile, default `15`) used to rank offers:
    `score = miles * AR_MILE_VALUE + taxes`.
@@ -45,27 +46,29 @@ python -m bot.main
 ### One-way
 
 ```
-EZE COR 2026-09
+EZE COR 2026-09 ECO 1
 ```
 
-Format: `ORIG DEST YYYY-MM`
+Format: `ORIG DEST YYYY-MM [ECO|EJE] [1-9]`
 
 Calls:
 
-`GET /v1/flights/offers?...&flightType=ONE_WAY&flexDates=true&awardBooking=true&leg=EZE-COR-20260916`
+`GET /v1/flights/offers?...&adt=1&flexDates=true&cabinClass=Economy&flightType=ONE_WAY&awardBooking=true&leg=EZE-COR-20260916`
 
 ### Round-trip
 
 ```
-EZE COR 2026-09-01 2026-10-01 d7 D14
+EZE COR 2026-09-01 2026-10-01 d7 D14 EJE 2
 ```
 
-Format: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN]`
+Format: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN] [ECO|EJE] [1-9]`
 
 - First date = minimum outbound departure
 - Second date = maximum return departure
 - `dN` = minimum days between outbound and return (1–90)
 - `DN` = optional maximum days (≤90)
+- `ECO` / `EJE` = cabin type
+- `1-9` = passengers
 
 Uses day **16** legs (same as one-way) so each call returns a full month calendar:
 
@@ -93,7 +96,7 @@ Date links open the RT offers page for that pair, e.g.:
 
 ## Notes
 
-- API returns 401/403 when browser cookies/headers expire — refresh `config/headers.json`.
+- Bearer token is scraped from the homepage and refreshed on expiry / 401/403. If still blocked, refresh cookies/`x-*` in `config/headers.json`.
 - EZE/AEP are shown as `bue` in the header.
 - One-way ranking: lowest `miles * CPM + taxes`, then miles, taxes, date.
 - Round-trip ranking: lowest combined `(out+ret miles) * CPM + (out+ret taxes)`, then miles, taxes, dates.

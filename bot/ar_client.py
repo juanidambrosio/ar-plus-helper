@@ -1,5 +1,4 @@
 import json
-import logging
 from pathlib import Path
 from typing import Any
 
@@ -8,11 +7,15 @@ import httpx
 from bot.parse import (
     FlightQuery,
     RoundTripQuery,
-    YearMonth,
     month_leg,
 )
 
-logger = logging.getLogger(__name__)
+
+CABIN_CLASS_BY_TYPE = {
+    "ECO": "Economy",
+    "EJE": "Business",
+}
+from bot.token import AccessTokenProvider, TokenError
 
 
 class ARApiError(Exception):
@@ -27,19 +30,20 @@ class ARClient:
         base_url: str,
         headers_file: str | Path,
         timeout: float = 30.0,
+        token_provider: AccessTokenProvider | None = None,
     ):
         self.base_url = base_url.rstrip("?")
         self.headers_file = Path(headers_file)
         self.timeout = timeout
+        self.token_provider = token_provider or AccessTokenProvider(
+            timeout=timeout)
 
     def load_headers(self) -> dict[str, str]:
         if not self.headers_file.exists():
-            logger.error("Headers file not found: %s", self.headers_file)
             raise ARApiError("Error interno, intentar nuevamente mas tarde")
         with self.headers_file.open(encoding="utf-8") as f:
             data = json.load(f)
         if not isinstance(data, dict):
-            logger.error("Headers file is not a JSON object: %s", self.headers_file)
             raise ARApiError("Error interno, intentar nuevamente mas tarde")
         headers = {str(k): str(v) for k, v in data.items() if v is not None}
         # httpx sets Host/Content-Length; strip hop-by-hop if present
@@ -49,27 +53,56 @@ class ARClient:
                 del headers[k]
         return headers
 
-    def _params_one_way_leg(self, leg: str) -> list[tuple[str, str]]:
+    async def _auth_headers(self, *, force_refresh: bool = False) -> dict[str, str]:
+        headers = self.load_headers()
+        try:
+            token = await self.token_provider.get(force=force_refresh)
+        except TokenError as exc:
+            raise ARApiError(str(exc), status_code=exc.status_code) from exc
+        # Drop any static Authorization from headers.json
+        for key in list(headers):
+            if key.lower() == "authorization":
+                del headers[key]
+        headers["Authorization"] = f"Bearer {token}"
+        return headers
+
+    def _cabin_class(self, cabin_type: str) -> str:
+        return CABIN_CLASS_BY_TYPE.get((cabin_type or "").upper(), "Economy")
+
+    def _base_params(self, query: FlightQuery | RoundTripQuery) -> list[tuple[str, str]]:
         return [
-            ("adt", "1"),
+            ("adt", str(query.passengers)),
             ("inf", "0"),
             ("chd", "0"),
             ("flexDates", "true"),
-            ("cabinClass", "Economy"),
+            ("cabinClass", self._cabin_class(query.cabin_type)),
+        ]
+
+    def _params_one_way_query(self, query: FlightQuery) -> list[tuple[str, str]]:
+        return self._base_params(query) + [
+            ("flightType", "ONE_WAY"),
+            ("awardBooking", "true"),
+            ("leg", query.leg),
+        ]
+
+    def _params_one_way_leg(
+        self,
+        query: FlightQuery | RoundTripQuery,
+        leg: str,
+    ) -> list[tuple[str, str]]:
+        return self._base_params(query) + [
             ("flightType", "ONE_WAY"),
             ("awardBooking", "true"),
             ("leg", leg),
         ]
 
     def _params_round_trip_legs(
-        self, outbound_leg: str, return_leg: str
+        self,
+        query: RoundTripQuery,
+        outbound_leg: str,
+        return_leg: str,
     ) -> list[tuple[str, str]]:
-        return [
-            ("adt", "1"),
-            ("inf", "0"),
-            ("chd", "0"),
-            ("flexDates", "true"),
-            ("cabinClass", "Economy"),
+        return self._base_params(query) + [
             ("flightType", "ROUND_TRIP"),
             ("awardBooking", "true"),
             ("leg", outbound_leg),
@@ -77,7 +110,7 @@ class ARClient:
         ]
 
     async def _get(self, params: list[tuple[str, str]]) -> dict[str, Any]:
-        headers = self.load_headers()
+        headers = await self._auth_headers()
         async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             try:
                 response = await client.get(self.base_url, params=params, headers=headers)
@@ -89,6 +122,21 @@ class ARClient:
                 raise ARApiError(
                     "Error interno, intentar nuevamente mas tarde",
                 ) from exc
+
+            if response.status_code in (401, 403):
+                headers = await self._auth_headers(force_refresh=True)
+                try:
+                    response = await client.get(
+                        self.base_url, params=params, headers=headers
+                    )
+                except httpx.TimeoutException as exc:
+                    raise ARApiError(
+                        "Error interno, intentar nuevamente mas tarde",
+                    ) from exc
+                except httpx.HTTPError as exc:
+                    raise ARApiError(
+                        "Error interno, intentar nuevamente mas tarde",
+                    ) from exc
 
         if response.status_code in (401, 403):
             raise ARApiError(
@@ -112,7 +160,7 @@ class ARClient:
         return payload
 
     async def fetch_offers(self, query: FlightQuery) -> dict[str, Any]:
-        return await self._get(self._params_one_way_leg(query.leg))
+        return await self._get(self._params_one_way_query(query))
 
     async def fetch_round_trip_calendars(
         self, query: RoundTripQuery
@@ -137,23 +185,22 @@ class ARClient:
             ym = out_set[key]
             out_leg = month_leg(query.origin, query.destination, ym)
             ret_leg = month_leg(query.destination, query.origin, ym)
-            logger.info("RT calendar fetch %s / %s", out_leg, ret_leg)
-            payload = await self._get(self._params_round_trip_legs(out_leg, ret_leg))
+            payload = await self._get(
+                self._params_round_trip_legs(query, out_leg, ret_leg)
+            )
             outbound.extend(_calendar_leg(payload, "0"))
             returns.extend(_calendar_leg(payload, "1"))
 
         for key in out_only:
             ym = out_set[key]
             leg = month_leg(query.origin, query.destination, ym)
-            logger.info("OW outbound calendar fetch %s", leg)
-            payload = await self._get(self._params_one_way_leg(leg))
+            payload = await self._get(self._params_one_way_leg(query, leg))
             outbound.extend(_calendar_one_way(payload))
 
         for key in ret_only:
             ym = ret_set[key]
             leg = month_leg(query.destination, query.origin, ym)
-            logger.info("OW return calendar fetch %s", leg)
-            payload = await self._get(self._params_one_way_leg(leg))
+            payload = await self._get(self._params_one_way_leg(query, leg))
             returns.extend(_calendar_one_way(payload))
 
         return {
