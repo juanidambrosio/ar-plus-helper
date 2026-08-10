@@ -65,7 +65,7 @@ async def nueva_alerta_command(
 
     alert_id = _repo(context).create(user_id, parsed)
     line = format_alert_line(parsed)
-    await update.message.reply_text(f"Alerta creada ({alert_id[:8]}…):\n{line}")
+    await update.message.reply_text(f"Alerta creada\n{line}")
 
 
 async def alerts_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
