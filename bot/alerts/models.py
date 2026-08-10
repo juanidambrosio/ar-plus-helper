@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Any
 
-from bot.parse import CABIN_TYPES
-
 
 def as_date(value: Any) -> date | None:
     if value is None:
@@ -47,15 +45,6 @@ def as_int(value: Any) -> int | None:
         return None
 
 
-def normalize_cabin_type(value: Any, default: str = "ECO") -> str:
-    cabin = str(value or default).strip().upper() or default
-    if cabin == "EJE":
-        cabin = "PEC"
-    if cabin in CABIN_TYPES:
-        return cabin
-    return default
-
-
 def date_to_utc_datetime(value: date) -> datetime:
     return datetime(value.year, value.month, value.day, tzinfo=timezone.utc)
 
@@ -71,7 +60,6 @@ class Alert:
     date_min: date
     date_max: date
     max_price: int
-    cabin_type: str = "ECO"
     country: str | None = None
 
     @classmethod
@@ -93,7 +81,6 @@ class Alert:
         date_min = as_date(doc.get("date_min"))
         date_max = as_date(doc.get("date_max"))
         max_price = as_int(doc.get("max_price"))
-        cabin_type = normalize_cabin_type(doc.get("cabin_type"))
         country = doc.get("country")
         country_s = str(country).strip() if country is not None else None
 
@@ -112,7 +99,6 @@ class Alert:
             date_min=date_min,
             date_max=date_max,
             max_price=max_price,
-            cabin_type=cabin_type,
             country=country_s or None,
         )
 
@@ -126,7 +112,6 @@ class AlertCreate:
     date_min: date
     date_max: date
     max_price: int
-    cabin_type: str = "ECO"
 
     @property
     def date_min_dt(self) -> datetime:

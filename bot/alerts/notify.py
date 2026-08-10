@@ -30,7 +30,7 @@ def format_alert_line(alert: Alert | AlertCreate) -> str:
     return (
         f"{alert.origin}→{alert.destination} "
         f"{_fmt_date(alert.date_min)}→{_fmt_date(alert.date_max)} "
-        f"≤{alert.max_price} {alert.cabin_type}"
+        f"≤{alert.max_price}"
     )
 
 
@@ -49,9 +49,7 @@ def format_alert_message(
 ) -> str:
     origin = display_airport(alert.origin)
     dest = display_airport(alert.destination)
-    header = escape(
-        f"🔔 {origin}→{dest} · ≤{alert.max_price} millas · {alert.cabin_type}"
-    )
+    header = escape(f"🔔 {origin}→{dest} · ≤{alert.max_price} millas")
     lines = [header]
     for offer in offers:
         date_label = escape(format_date(offer.departure))
@@ -60,7 +58,6 @@ def format_alert_message(
                 alert.origin,
                 alert.destination,
                 offer.departure,
-                alert.cabin_type,
                 passengers,
             )
         )

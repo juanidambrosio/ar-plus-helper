@@ -14,7 +14,7 @@ from bot.rank import RankedOffer, normalize_offer
 
 logger = logging.getLogger(__name__)
 
-FetchKey = tuple[str, str, int, int, str]  # origin, dest, year, month, cabin
+FetchKey = tuple[str, str, int, int]  # origin, dest, year, month
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,6 @@ def unique_fetch_keys(alerts: list[Alert]) -> list[FetchKey]:
                     alert.destination,
                     ym.year,
                     ym.month,
-                    alert.cabin_type,
                 )
             )
     return sorted(keys)
@@ -79,14 +78,13 @@ async def fetch_calendars(
 ) -> tuple[dict[FetchKey, list[RankedOffer]], int]:
     results: dict[FetchKey, list[RankedOffer]] = {}
     errors = 0
-    for origin, dest, year, month, cabin in keys:
-        key: FetchKey = (origin, dest, year, month, cabin)
+    for key in keys:
+        origin, dest, year, month = key
         query = FlightQuery(
             origin=origin,
             destination=dest,
             year=year,
             month=month,
-            cabin_type=cabin,
             passengers=passengers,
         )
         try:
@@ -117,7 +115,6 @@ def matches_for_alert(
             alert.destination,
             ym.year,
             ym.month,
-            alert.cabin_type,
         )
         for offer in offers_by_key.get(key, []):
             dep = _parse_departure(offer.departure)

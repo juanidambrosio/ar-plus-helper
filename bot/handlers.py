@@ -12,13 +12,12 @@ from bot.rank import rank_offers, rank_round_trips
 
 HELP_TEXT = (
     "Enviá un query de aeropuerto a aeropuerto:\n"
-    "`EZE COR 2026-09 ECO 1`\n"
-    "`EZE COR 2026-09-01 2026-10-01 d7 D14 PEC 2`\n\n"
-    "Ida: `ORIG DEST YYYY-MM [ECO|PEC] [1-9]`\n"
-    "Ida y vuelta: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN] [ECO|PEC] [1-9]`\n"
-    "`ECO` = económica, `PEC` = premium economy\n"
+    "`EZE COR 2026-09 1`\n"
+    "`EZE COR 2026-09-01 2026-10-01 d7 D14 2`\n\n"
+    "Ida: `ORIG DEST YYYY-MM [1-9]`\n"
+    "Ida y vuelta: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN] [1-9]`\n"
     "`1-9` = cantidad de pasajeros\n\n"
-    "Alertas: `/alertas` · `/nuevaalerta ORIG DEST DATE_MIN DATE_MAX MAX_PRICE [ECO|PEC]`"
+    "Alertas: `/alertas` · `/nuevaalerta ORIG DEST DATE_MIN DATE_MAX MAX_PRICE`"
 )
 
 
@@ -44,8 +43,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if query is None:
         await update.message.reply_text(
             "No entendí el query.\n"
-            "Ida: `EZE COR 2026-09 ECO 1`\n"
-            "Ida y vuelta: `EZE COR 2026-09-01 2026-10-01 d7 D14 PEC 2`",
+            "Ida: `EZE COR 2026-09 1`\n"
+            "Ida y vuelta: `EZE COR 2026-09-01 2026-10-01 d7 D14 2`",
             parse_mode="Markdown",
         )
         return

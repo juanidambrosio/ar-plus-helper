@@ -50,28 +50,27 @@ python -m bot.main
 ### One-way
 
 ```
-EZE COR 2026-09 ECO 1
+EZE COR 2026-09 1
 ```
 
-Format: `ORIG DEST YYYY-MM [ECO|PEC] [1-9]`
+Format: `ORIG DEST YYYY-MM [1-9]`
 
 Calls:
 
-`GET /v1/flights/offers?...&adt=1&flexDates=true&cabinClass=Economy&flightType=ONE_WAY&awardBooking=true&leg=EZE-COR-20260916`
+`GET /v1/flights/offers?...&adt=1&flexDates=true&flightType=ONE_WAY&awardBooking=true&leg=EZE-COR-20260916`
 
 ### Round-trip
 
 ```
-EZE COR 2026-09-01 2026-10-01 d7 D14 PEC 2
+EZE COR 2026-09-01 2026-10-01 d7 D14 2
 ```
 
-Format: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN] [ECO|PEC] [1-9]`
+Format: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN] [1-9]`
 
 - First date = minimum outbound departure
 - Second date = maximum return departure
 - `dN` = minimum days between outbound and return (1–90)
 - `DN` = optional maximum days (≤90)
-- `ECO` / `PEC` = cabin type
 - `1-9` = passengers
 
 Uses day **16** legs (same as one-way) so each call returns a full month calendar:
@@ -96,19 +95,17 @@ bue cor 2026-09-01→2026-10-01 d7 D14
 
 Date links open the RT offers page for that pair, e.g.:
 
-`https://www.aerolineas.com.ar/flights-offers?adt=1&inf=0&chd=0&flexDates=false&cabinClass=Economy&flightType=ROUND_TRIP&awardBooking=true&leg=EZE-COR-20260903&leg=COR-EZE-20260915`
+`https://www.aerolineas.com.ar/flights-offers?adt=1&inf=0&chd=0&flexDates=false&flightType=ROUND_TRIP&awardBooking=true&leg=EZE-COR-20260903&leg=COR-EZE-20260915`
 
 ### Alerts
 
 ```
 /alertas
 /nuevaalerta EZE MIA 2025-01-01 2025-02-01 100000
-/nuevaalerta EZE MIA 2025-01-01 2025-02-01 100000 PEC
 ```
 
 - `/alertas` — menu: create, list, delete (inline buttons + confirm)
-- `/nuevaalerta ORIG DEST DATE_MIN DATE_MAX MAX_PRICE [ECO|PEC]`
-  - optional cabin defaults to `ECO`
+- `/nuevaalerta ORIG DEST DATE_MIN DATE_MAX MAX_PRICE`
   - stored in MongoDB `ar_plus_helper.alerts` keyed by Telegram `user_id`
 
 ### Daily alert checker (Lambda)

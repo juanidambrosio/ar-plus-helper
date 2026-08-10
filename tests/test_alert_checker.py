@@ -49,7 +49,6 @@ def _alert(**overrides) -> Alert:
         date_min=date(2026, 5, 1),
         date_max=date(2026, 5, 18),
         max_price=50000,
-        cabin_type="ECO",
     )
     data.update(overrides)
     return Alert(**data)
@@ -77,9 +76,8 @@ class AlertModelTests(TestCase):
         self.assertEqual(alert.date_min, date(2026, 5, 1))
         self.assertEqual(alert.date_max, date(2026, 5, 18))
         self.assertEqual(alert.max_price, 500000)
-        self.assertEqual(alert.cabin_type, "ECO")
 
-    def test_from_doc_defaults_cabin(self):
+    def test_from_doc_ignores_legacy_cabin_type(self):
         doc = {
             "_id": "x",
             "user_id": "1",
@@ -88,11 +86,12 @@ class AlertModelTests(TestCase):
             "date_min": "2026-09-01",
             "date_max": "2026-09-30",
             "max_price": 10000,
+            "cabin_type": "PEC",
         }
         alert = Alert.from_doc(doc)
         self.assertIsNotNone(alert)
         assert alert is not None
-        self.assertEqual(alert.cabin_type, "ECO")
+        self.assertFalse(hasattr(alert, "cabin_type"))
 
     def test_from_doc_rejects_inverted_dates(self):
         doc = {
@@ -107,7 +106,7 @@ class AlertModelTests(TestCase):
 
 
 class FetchKeyTests(TestCase):
-    def test_dedupes_same_route_month_cabin(self):
+    def test_dedupes_same_route_month(self):
         alerts = [
             _alert(id="1", user_id="u1"),
             _alert(id="2", user_id="u2", max_price=10000),
@@ -122,26 +121,16 @@ class FetchKeyTests(TestCase):
         self.assertEqual(
             keys,
             [
-                ("EZE", "JFK", 2026, 5, "ECO"),
-                ("EZE", "JFK", 2026, 6, "ECO"),
+                ("EZE", "JFK", 2026, 5),
+                ("EZE", "JFK", 2026, 6),
             ],
         )
-
-    def test_cabin_is_part_of_key(self):
-        alerts = [
-            _alert(cabin_type="ECO"),
-            _alert(id="b", cabin_type="PEC"),
-        ]
-        keys = unique_fetch_keys(alerts)
-        self.assertEqual(len(keys), 2)
-        self.assertIn(("EZE", "JFK", 2026, 5, "ECO"), keys)
-        self.assertIn(("EZE", "JFK", 2026, 5, "PEC"), keys)
 
 
 class MatchFilterTests(TestCase):
     def test_filters_by_date_and_miles(self):
         alert = _alert(max_price=20000)
-        key = ("EZE", "JFK", 2026, 5, "ECO")
+        key = ("EZE", "JFK", 2026, 5)
         offers_by_key = {
             key: [
                 _offer("2026-05-02", 15000),
@@ -159,7 +148,7 @@ class MatchFilterTests(TestCase):
 
     def test_limit_top_n_by_miles(self):
         alert = _alert(max_price=100000)
-        key = ("EZE", "JFK", 2026, 5, "ECO")
+        key = ("EZE", "JFK", 2026, 5)
         offers_by_key = {
             key: [_offer(f"2026-05-{d:02d}", miles) for d, miles in [
                 (1, 50000),
@@ -175,7 +164,7 @@ class MatchFilterTests(TestCase):
 
     def test_empty_when_no_matches(self):
         alert = _alert(max_price=1000)
-        key = ("EZE", "JFK", 2026, 5, "ECO")
+        key = ("EZE", "JFK", 2026, 5)
         offers_by_key = {key: [_offer("2026-05-02", 15000)]}
         self.assertEqual(matches_for_alert(alert, offers_by_key), [])
 
@@ -202,8 +191,8 @@ class FetchCalendarsTests(TestCase):
                 }
             }
             keys = [
-                ("EZE", "JFK", 2026, 5, "ECO"),
-                ("EZE", "JFK", 2026, 6, "ECO"),
+                ("EZE", "JFK", 2026, 5),
+                ("EZE", "JFK", 2026, 6),
             ]
             results, errors = await fetch_calendars(
                 client, keys, mile_value=15.0

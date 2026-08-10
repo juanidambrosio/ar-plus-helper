@@ -13,59 +13,43 @@ from bot.parse import FlightQuery, RoundTripQuery, parse_query
 
 
 class ParseQueryTests(TestCase):
-    def test_one_way_defaults_to_economy_and_one_passenger(self):
+    def test_one_way_defaults_to_one_passenger(self):
         query = parse_query("EZE COR 2026-09")
 
         self.assertIsInstance(query, FlightQuery)
         assert isinstance(query, FlightQuery)
-        self.assertEqual(query.cabin_type, "ECO")
         self.assertEqual(query.passengers, 1)
 
-    def test_one_way_parses_cabin_and_passengers(self):
-        query = parse_query("EZE COR 2026-09 PEC 2")
+    def test_one_way_parses_passengers(self):
+        query = parse_query("EZE COR 2026-09 2")
 
         self.assertIsInstance(query, FlightQuery)
         assert isinstance(query, FlightQuery)
-        self.assertEqual(query.cabin_type, "PEC")
         self.assertEqual(query.passengers, 2)
 
-    def test_one_way_parses_passengers_before_cabin(self):
-        query = parse_query("EZE COR 2026-09 2 PEC")
-
-        self.assertIsInstance(query, FlightQuery)
-        assert isinstance(query, FlightQuery)
-        self.assertEqual(query.cabin_type, "PEC")
-        self.assertEqual(query.passengers, 2)
-
-    def test_round_trip_parses_cabin_and_passengers(self):
-        query = parse_query("EZE COR 2026-09-01 2026-10-01 d7 D14 PEC 3")
+    def test_round_trip_parses_passengers(self):
+        query = parse_query("EZE COR 2026-09-01 2026-10-01 d7 D14 3")
 
         self.assertIsInstance(query, RoundTripQuery)
         assert isinstance(query, RoundTripQuery)
-        self.assertEqual(query.cabin_type, "PEC")
         self.assertEqual(query.passengers, 3)
 
-    def test_round_trip_parses_passengers_before_cabin(self):
-        query = parse_query("EZE COR 2026-09-01 2026-10-01 d7 D14 3 PEC")
-
-        self.assertIsInstance(query, RoundTripQuery)
-        assert isinstance(query, RoundTripQuery)
-        self.assertEqual(query.cabin_type, "PEC")
-        self.assertEqual(query.passengers, 3)
-
-    def test_round_trip_defaults_to_economy_and_one_passenger(self):
+    def test_round_trip_defaults_to_one_passenger(self):
         query = parse_query("EZE COR 2026-09-01 2026-10-01 d7 D14")
 
         self.assertIsInstance(query, RoundTripQuery)
         assert isinstance(query, RoundTripQuery)
-        self.assertEqual(query.cabin_type, "ECO")
         self.assertEqual(query.passengers, 1)
 
-    def test_rejects_invalid_cabin(self):
+    def test_rejects_unknown_token(self):
         self.assertIsNone(parse_query("EZE COR 2026-09 ABC 2"))
 
+    def test_rejects_cabin_token(self):
+        self.assertIsNone(parse_query("EZE COR 2026-09 ECO"))
+        self.assertIsNone(parse_query("EZE COR 2026-09 PEC 2"))
+
     def test_rejects_invalid_passengers(self):
-        self.assertIsNone(parse_query("EZE COR 2026-09 ECO 10"))
+        self.assertIsNone(parse_query("EZE COR 2026-09 10"))
 
 
 class ARClientParamsTests(TestCase):
@@ -75,7 +59,6 @@ class ARClientParamsTests(TestCase):
             destination="COR",
             year=2026,
             month=9,
-            cabin_type="PEC",
             passengers=3,
         )
         client = ARClient(base_url="https://example.com", headers_file="/tmp/headers.json")
@@ -86,13 +69,12 @@ class ARClientParamsTests(TestCase):
         self.assertEqual(result, {"ok": True})
         get_mock.assert_awaited_once_with(client._params_one_way_query(query))
 
-    def test_one_way_request_uses_cabin_and_passengers(self):
+    def test_one_way_request_uses_passengers(self):
         query = FlightQuery(
             origin="EZE",
             destination="COR",
             year=2026,
             month=9,
-            cabin_type="PEC",
             passengers=3,
         )
         client = ARClient(base_url="https://example.com", headers_file="/tmp/headers.json")
@@ -106,14 +88,13 @@ class ARClientParamsTests(TestCase):
                 ("inf", "0"),
                 ("chd", "0"),
                 ("flexDates", "true"),
-                ("cabinClass", "PremiumEconomy"),
                 ("flightType", "ONE_WAY"),
                 ("awardBooking", "true"),
                 ("leg", "EZE-COR-20260916"),
             ],
         )
 
-    def test_round_trip_request_uses_cabin_and_passengers(self):
+    def test_round_trip_request_uses_passengers(self):
         query = RoundTripQuery(
             origin="EZE",
             destination="COR",
@@ -121,7 +102,6 @@ class ARClientParamsTests(TestCase):
             max_return=date(2026, 10, 1),
             min_days=7,
             max_days=14,
-            cabin_type="ECO",
             passengers=1,
         )
         client = ARClient(base_url="https://example.com", headers_file="/tmp/headers.json")
@@ -135,7 +115,6 @@ class ARClientParamsTests(TestCase):
                 ("inf", "0"),
                 ("chd", "0"),
                 ("flexDates", "true"),
-                ("cabinClass", "Economy"),
                 ("flightType", "ROUND_TRIP"),
                 ("awardBooking", "true"),
                 ("leg", "EZE-COR-20260916"),

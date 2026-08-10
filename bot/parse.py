@@ -2,7 +2,6 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
-CABIN_TYPES = {"ECO", "PEC"}
 ONE_WAY_RE = re.compile(
     r"^([A-Za-z]{3})\s+([A-Za-z]{3})\s+(\d{4})-(\d{2})$"
 )
@@ -50,7 +49,6 @@ class FlightQuery:
     destination: str
     year: int
     month: int
-    cabin_type: str = "ECO"
     passengers: int = 1
 
     @property
@@ -74,7 +72,6 @@ class RoundTripQuery:
     max_return: date
     min_days: int
     max_days: int | None
-    cabin_type: str = "ECO"
     passengers: int = 1
 
     @property
@@ -117,15 +114,6 @@ def _parse_iso_date(value: str) -> date | None:
         return None
 
 
-def _parse_cabin_type(value: str) -> str | None:
-    cabin = value.upper()
-    if cabin == "EJE":
-        cabin = "PEC"
-    if cabin in CABIN_TYPES:
-        return cabin
-    return None
-
-
 def _parse_passengers(value: str) -> int | None:
     if not value.isdigit():
         return None
@@ -135,22 +123,17 @@ def _parse_passengers(value: str) -> int | None:
     return None
 
 
-def _parse_query_extras(tokens: list[str]) -> tuple[str, int] | None:
-    cabin_type = "ECO"
+def _parse_query_extras(tokens: list[str]) -> int | None:
     passengers = 1
     for token in tokens:
         if not token:
-            continue
-        cabin = _parse_cabin_type(token)
-        if cabin is not None:
-            cabin_type = cabin
             continue
         pax = _parse_passengers(token)
         if pax is not None:
             passengers = pax
             continue
         return None
-    return cabin_type, passengers
+    return passengers
 
 
 def _parse_round_trip_tokens(tokens: list[str]) -> RoundTripQuery | None:
@@ -178,10 +161,9 @@ def _parse_round_trip_tokens(tokens: list[str]) -> RoundTripQuery | None:
         if max_days < min_days or max_days > 90:
             return None
 
-    extras = _parse_query_extras(tokens[idx:])
-    if extras is None:
+    passengers = _parse_query_extras(tokens[idx:])
+    if passengers is None:
         return None
-    cabin_type, passengers = extras
 
     return RoundTripQuery(
         origin=origin.upper(),
@@ -190,7 +172,6 @@ def _parse_round_trip_tokens(tokens: list[str]) -> RoundTripQuery | None:
         max_return=max_return,
         min_days=min_days,
         max_days=max_days,
-        cabin_type=cabin_type,
         passengers=passengers,
     )
 
@@ -211,17 +192,15 @@ def _parse_one_way_tokens(tokens: list[str]) -> FlightQuery | None:
     if month < 1 or month > 12:
         return None
 
-    extras = _parse_query_extras(tokens[3:])
-    if extras is None:
+    passengers = _parse_query_extras(tokens[3:])
+    if passengers is None:
         return None
-    cabin_type, passengers = extras
 
     return FlightQuery(
         origin=origin.upper(),
         destination=destination.upper(),
         year=year,
         month=month,
-        cabin_type=cabin_type,
         passengers=passengers,
     )
 

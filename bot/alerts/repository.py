@@ -82,7 +82,6 @@ class AlertRepository:
             "date_min": date_to_utc_datetime(data.date_min),
             "date_max": date_to_utc_datetime(data.date_max),
             "max_price": data.max_price,
-            "cabin_type": data.cabin_type,
             "created_at": datetime.now(timezone.utc),
         }
         result = self._collection().insert_one(doc)

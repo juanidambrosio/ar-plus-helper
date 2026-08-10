@@ -9,12 +9,6 @@ from bot.parse import (
     RoundTripQuery,
     month_leg,
 )
-
-
-CABIN_CLASS_BY_TYPE = {
-    "ECO": "Economy",
-    "PEC": "PremiumEconomy",
-}
 from bot.token import AccessTokenProvider, TokenError
 
 
@@ -66,16 +60,12 @@ class ARClient:
         headers["Authorization"] = f"Bearer {token}"
         return headers
 
-    def _cabin_class(self, cabin_type: str) -> str:
-        return CABIN_CLASS_BY_TYPE.get((cabin_type or "").upper(), "Economy")
-
     def _base_params(self, query: FlightQuery | RoundTripQuery) -> list[tuple[str, str]]:
         return [
             ("adt", str(query.passengers)),
             ("inf", "0"),
             ("chd", "0"),
             ("flexDates", "true"),
-            ("cabinClass", self._cabin_class(query.cabin_type)),
         ]
 
     def _params_one_way_query(self, query: FlightQuery) -> list[tuple[str, str]]:
