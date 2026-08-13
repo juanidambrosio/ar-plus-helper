@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 from bot.alerts.repository import AlertRepository
 from bot.ar_client import ARApiError, ARClient
 from bot.baggage import BaggageResolver
+from bot.filters.repository import FilterRepository
 from bot.format import format_results, format_round_trip_results
 from bot.parse import FlightQuery, RoundTripQuery, parse_query
 from bot.rank import rank_offers, rank_round_trips
@@ -17,7 +18,8 @@ HELP_TEXT = (
     "Ida: `ORIG DEST YYYY-MM [1-9]`\n"
     "Ida y vuelta: `ORIG DEST YYYY-MM-DD YYYY-MM-DD dN [DN] [1-9]`\n"
     "`1-9` = cantidad de pasajeros\n\n"
-    "Alertas: `/alertas` · `/nuevaalerta ORIG DEST DATE_MIN DATE_MAX MAX_PRICE`"
+    "Alertas: `/alertas` · `/nuevaalerta ORIG DEST DATE_MIN DATE_MAX MAX_PRICE`\n"
+    "Filtros: `/filtros`"
 )
 
 
@@ -54,6 +56,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     baggage: BaggageResolver = cfg["baggage"]
     mile_value: float = cfg["mile_value"]
 
+    limit = 10
+    user = update.effective_user
+    if user and "filter_repo" in cfg:
+        user_filter = cfg["filter_repo"].get_by_user(str(user.id))
+        if user_filter:
+            limit = user_filter.limit
+
     await update.message.chat.send_action("typing")
     try:
         if isinstance(query, RoundTripQuery):
@@ -65,13 +74,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 min_days=query.min_days,
                 max_days=query.max_days,
                 mile_value=mile_value,
-                limit=10,
+                limit=limit,
             )
             reply = format_round_trip_results(query, pairs, baggage)
         else:
             assert isinstance(query, FlightQuery)
             payload = await client.fetch_offers(query)
-            offers = rank_offers(payload, mile_value=mile_value, limit=10)
+            offers = rank_offers(payload, mile_value=mile_value, limit=limit)
             reply = format_results(query, offers, baggage)
         await update.message.reply_text(
             reply,
@@ -100,6 +109,7 @@ def build_bot_data(
     mile_value: float,
     baggage_rules: str | Path,
     alert_repo: AlertRepository | None = None,
+    filter_repo: FilterRepository | None = None,
 ) -> dict:
     data = {
         "ar_client": ARClient(base_url=api_base, headers_file=headers_file),
@@ -108,4 +118,6 @@ def build_bot_data(
     }
     if alert_repo is not None:
         data["alert_repo"] = alert_repo
+    if filter_repo is not None:
+        data["filter_repo"] = filter_repo
     return data

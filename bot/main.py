@@ -18,6 +18,11 @@ from bot.alerts.commands import (
     nueva_alerta_command,
 )
 from bot.alerts.repository import AlertRepository
+from bot.filters.commands import (
+    filters_callback,
+    filters_command,
+)
+from bot.filters.repository import FilterRepository
 from bot.handlers import build_bot_data, handle_text, help_command, start_command
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -56,6 +61,9 @@ def main() -> None:
     alert_repo = AlertRepository(mongo_uri)
     alert_repo.ensure_indexes()
 
+    filter_repo = FilterRepository(mongo_uri)
+    filter_repo.ensure_indexes()
+
     app = Application.builder().token(token).build()
     app.bot_data.update(
         build_bot_data(
@@ -64,13 +72,16 @@ def main() -> None:
             mile_value=mile_value,
             baggage_rules=baggage_rules,
             alert_repo=alert_repo,
+            filter_repo=filter_repo,
         )
     )
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("alertas", alerts_command))
     app.add_handler(CommandHandler("nuevaalerta", nueva_alerta_command))
+    app.add_handler(CommandHandler("filtros", filters_command))
     app.add_handler(CallbackQueryHandler(alerts_callback, pattern=r"^alerts:"))
+    app.add_handler(CallbackQueryHandler(filters_callback, pattern=r"^filters:"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
     app.run_polling(allowed_updates=["message", "callback_query"])
