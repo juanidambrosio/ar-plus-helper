@@ -4,10 +4,12 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
+from telegram import Update
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
     CommandHandler,
+    ContextTypes,
     MessageHandler,
     filters,
 )
@@ -26,6 +28,14 @@ from bot.filters.repository import FilterRepository
 from bot.handlers import build_bot_data, handle_text, help_command, start_command
 
 ROOT = Path(__file__).resolve().parent.parent
+
+logger = logging.getLogger(__name__)
+
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.error(
+        f"Exception while handling an update {update}:", exc_info=context.error
+    )
 
 
 def main() -> None:
@@ -83,6 +93,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(alerts_callback, pattern=r"^alerts:"))
     app.add_handler(CallbackQueryHandler(filters_callback, pattern=r"^filters:"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_error_handler(error_handler)
 
     app.run_polling(allowed_updates=["message", "callback_query"])
 
