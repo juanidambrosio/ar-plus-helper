@@ -10,6 +10,7 @@ from bot.filters.repository import FilterRepository
 from bot.format import format_results, format_round_trip_results
 from bot.parse import FlightQuery, RoundTripQuery, parse_query
 from bot.rank import rank_offers, rank_round_trips
+from bot.utils import run_with_retry
 
 HELP_TEXT = (
     "Enviá un query de aeropuerto a aeropuerto:\n"
@@ -25,12 +26,12 @@ HELP_TEXT = (
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message:
-        await update.message.reply_text(HELP_TEXT, parse_mode="Markdown")
+        await run_with_retry(lambda: update.message.reply_text(HELP_TEXT, parse_mode="Markdown"))
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message:
-        await update.message.reply_text(HELP_TEXT, parse_mode="Markdown")
+        await run_with_retry(lambda: update.message.reply_text(HELP_TEXT, parse_mode="Markdown"))
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -63,7 +64,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if user_filter:
             limit = user_filter.limit
 
-    await update.message.chat.send_action("typing")
+    await run_with_retry(lambda: update.message.chat.send_action("typing"))
     try:
         if isinstance(query, RoundTripQuery):
             calendars = await client.fetch_round_trip_calendars(query)
@@ -82,23 +83,23 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             payload = await client.fetch_offers(query)
             offers = rank_offers(payload, mile_value=mile_value, limit=limit)
             reply = format_results(query, offers, baggage)
-        await update.message.reply_text(
+        await run_with_retry(lambda: update.message.reply_text(
             reply,
             parse_mode="HTML",
             disable_web_page_preview=True,
-        )
+        ))
         print(text, flush=True)
     except ARApiError as exc:
         if exc.status_code in (401, 403):
             msg = "Bloqueado por AR Plus."
         else:
             msg = str(exc) or "Error interno, intentar nuevamente mas tarde"
-        await update.message.reply_text(msg)
+        await run_with_retry(lambda: update.message.reply_text(msg))
         print(f"{text} -> error: {msg}", flush=True)
     except Exception as exc:
-        await update.message.reply_text(
+        await run_with_retry(lambda: update.message.reply_text(
             "Error interno, intentar nuevamente mas tarde"
-        )
+        ))
         print(f"{text} -> error: {exc}", flush=True)
 
 

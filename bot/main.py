@@ -5,6 +5,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from telegram import Update
+from telegram.error import NetworkError
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -33,6 +34,9 @@ logger = logging.getLogger(__name__)
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update is None and isinstance(context.error, NetworkError):
+        logger.warning(f"Polling network warning: {context.error}")
+        return
     logger.error(
         f"Exception while handling an update {update}:", exc_info=context.error
     )
@@ -74,7 +78,15 @@ def main() -> None:
     filter_repo = FilterRepository(mongo_uri)
     filter_repo.ensure_indexes()
 
-    app = Application.builder().token(token).build()
+    app = (
+        Application.builder()
+        .token(token)
+        .connect_timeout(30.0)
+        .read_timeout(30.0)
+        .write_timeout(30.0)
+        .pool_timeout(30.0)
+        .build()
+    )
     app.bot_data.update(
         build_bot_data(
             headers_file=str(headers_path),

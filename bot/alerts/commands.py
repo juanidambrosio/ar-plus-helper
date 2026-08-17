@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 from bot.alerts.notify import format_alert_line, format_alerts_list
 from bot.alerts.parse import NUEVA_ALERTA_USAGE, parse_nueva_alerta
 from bot.alerts.repository import AlertRepository
+from bot.utils import run_with_retry
 
 CB_ALERTS_CREATE = "alerts:create"
 CB_ALERTS_LIST = "alerts:list"
@@ -43,10 +44,10 @@ def _repo(context: ContextTypes.DEFAULT_TYPE) -> AlertRepository:
 async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message:
         return
-    await update.message.reply_text(
+    await run_with_retry(lambda: update.message.reply_text(
         "Alertas de vuelos:",
         reply_markup=_alerts_menu_keyboard(),
-    )
+    ))
 
 
 async def nueva_alerta_command(
@@ -60,19 +61,19 @@ async def nueva_alerta_command(
 
     parsed = parse_nueva_alerta(context.args or [])
     if isinstance(parsed, str):
-        await update.message.reply_text(parsed, parse_mode="Markdown")
+        await run_with_retry(lambda: update.message.reply_text(parsed, parse_mode="Markdown"))
         return
 
     alert_id = _repo(context).create(user_id, parsed)
     line = format_alert_line(parsed)
-    await update.message.reply_text(f"Alerta creada\n{line}")
+    await run_with_retry(lambda: update.message.reply_text(f"Alerta creada\n{line}"))
 
 
 async def alerts_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query is None:
         return
-    await query.answer()
+    await run_with_retry(lambda: query.answer())
 
     user_id = _user_id(update)
     if user_id is None:
@@ -82,18 +83,18 @@ async def alerts_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     repo = _repo(context)
 
     if data == CB_ALERTS_CREATE:
-        await query.edit_message_text(NUEVA_ALERTA_USAGE, parse_mode="Markdown")
+        await run_with_retry(lambda: query.edit_message_text(NUEVA_ALERTA_USAGE, parse_mode="Markdown"))
         return
 
     if data == CB_ALERTS_LIST:
         alerts = repo.list_by_user(user_id)
-        await query.edit_message_text(format_alerts_list(alerts))
+        await run_with_retry(lambda: query.edit_message_text(format_alerts_list(alerts)))
         return
 
     if data == CB_ALERTS_DELETE_MENU:
         alerts = repo.list_by_user(user_id)
         if not alerts:
-            await query.edit_message_text("No tenés alertas.")
+            await run_with_retry(lambda: query.edit_message_text("No tenés alertas."))
             return
         rows = []
         for alert in alerts:
@@ -111,24 +112,24 @@ async def alerts_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         rows.append(
             [InlineKeyboardButton("Cancelar", callback_data=CB_ALERTS_CANCEL)]
         )
-        await query.edit_message_text(
+        await run_with_retry(lambda: query.edit_message_text(
             "Elegí la alerta a eliminar:",
             reply_markup=InlineKeyboardMarkup(rows),
-        )
+        ))
         return
 
     if data == CB_ALERTS_CANCEL:
-        await query.edit_message_text(
+        await run_with_retry(lambda: query.edit_message_text(
             "Alertas de vuelos:",
             reply_markup=_alerts_menu_keyboard(),
-        )
+        ))
         return
 
     if data.startswith(CB_ALERTS_DELETE_PREFIX):
         alert_id = data[len(CB_ALERTS_DELETE_PREFIX) :]
         alert = repo.get_for_user(user_id, alert_id)
         if alert is None:
-            await query.edit_message_text("Alerta no encontrada.")
+            await run_with_retry(lambda: query.edit_message_text("Alerta no encontrada."))
             return
         line = format_alert_line(alert)
         keyboard = InlineKeyboardMarkup(
@@ -142,17 +143,17 @@ async def alerts_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 ]
             ]
         )
-        await query.edit_message_text(
+        await run_with_retry(lambda: query.edit_message_text(
             f"¿Eliminar esta alerta?\n{line}",
             reply_markup=keyboard,
-        )
+        ))
         return
 
     if data.startswith(CB_ALERTS_CONFIRM_PREFIX):
         alert_id = data[len(CB_ALERTS_CONFIRM_PREFIX) :]
         deleted = repo.delete_for_user(user_id, alert_id)
         if deleted:
-            await query.edit_message_text("Alerta eliminada.")
+            await run_with_retry(lambda: query.edit_message_text("Alerta eliminada."))
         else:
-            await query.edit_message_text("Alerta no encontrada.")
+            await run_with_retry(lambda: query.edit_message_text("Alerta no encontrada."))
         return

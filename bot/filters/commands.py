@@ -4,6 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from bot.filters.repository import FilterRepository
+from bot.utils import run_with_retry
 
 CB_FILTERS_ADD_MENU = "filters:add_menu"
 CB_FILTERS_LIST = "filters:list"
@@ -74,17 +75,17 @@ def _repo(context: ContextTypes.DEFAULT_TYPE) -> FilterRepository:
 async def filters_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message:
         return
-    await update.message.reply_text(
+    await run_with_retry(lambda: update.message.reply_text(
         "Filtros de búsqueda:",
         reply_markup=_filters_menu_keyboard(),
-    )
+    ))
 
 
 async def filters_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query is None:
         return
-    await query.answer()
+    await run_with_retry(lambda: query.answer())
 
     user_id = _user_id(update)
     if user_id is None:
@@ -94,17 +95,17 @@ async def filters_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     repo = _repo(context)
 
     if data == CB_FILTERS_ADD_MENU:
-        await query.edit_message_text(
+        await run_with_retry(lambda: query.edit_message_text(
             "Elegí qué filtro agregar:",
             reply_markup=_add_filter_menu_keyboard(),
-        )
+        ))
         return
 
     if data == CB_FILTERS_ADD_MAX_RESULTS:
-        await query.edit_message_text(
+        await run_with_retry(lambda: query.edit_message_text(
             "Elegí el límite máximo de resultados (1-31):",
             reply_markup=_limit_buttons_keyboard(),
-        )
+        ))
         return
 
     if data.startswith(CB_FILTERS_SET_LIMIT_PREFIX):
@@ -112,44 +113,44 @@ async def filters_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         try:
             limit = int(limit_str)
         except ValueError:
-            await query.edit_message_text("Límite inválido.")
+            await run_with_retry(lambda: query.edit_message_text("Límite inválido."))
             return
         repo.set_for_user(user_id, limit)
-        await query.edit_message_text(
+        await run_with_retry(lambda: query.edit_message_text(
             f"Filtro guardado. Límite de resultados: {limit}",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Volver al menú", callback_data=CB_FILTERS_CANCEL)]]
             )
-        )
+        ))
         return
 
     if data == CB_FILTERS_LIST:
         user_filter = repo.get_by_user(user_id)
         if user_filter is None:
-            await query.edit_message_text(
+            await run_with_retry(lambda: query.edit_message_text(
                 "No tenés ningún filtro activo. Límite por defecto: 10 resultados.",
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("Volver al menú", callback_data=CB_FILTERS_CANCEL)]]
                 )
-            )
+            ))
         else:
-            await query.edit_message_text(
+            await run_with_retry(lambda: query.edit_message_text(
                 f"Filtro activo:\nLímite de resultados: {user_filter.limit}",
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("Volver al menú", callback_data=CB_FILTERS_CANCEL)]]
                 )
-            )
+            ))
         return
 
     if data == CB_FILTERS_DELETE_MENU:
         user_filter = repo.get_by_user(user_id)
         if user_filter is None:
-            await query.edit_message_text(
+            await run_with_retry(lambda: query.edit_message_text(
                 "No tenés filtros activos.",
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("Volver al menú", callback_data=CB_FILTERS_CANCEL)]]
                 )
-            )
+            ))
             return
         rows = [
             [
@@ -160,29 +161,29 @@ async def filters_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             ],
             [InlineKeyboardButton("Cancelar", callback_data=CB_FILTERS_CANCEL)],
         ]
-        await query.edit_message_text(
+        await run_with_retry(lambda: query.edit_message_text(
             "Elegí el filtro a eliminar:",
             reply_markup=InlineKeyboardMarkup(rows),
-        )
+        ))
         return
 
     if data == CB_FILTERS_CANCEL:
-        await query.edit_message_text(
+        await run_with_retry(lambda: query.edit_message_text(
             "Filtros de búsqueda:",
             reply_markup=_filters_menu_keyboard(),
-        )
+        ))
         return
 
     if data.startswith(CB_FILTERS_DELETE_PREFIX):
         filter_id = data[len(CB_FILTERS_DELETE_PREFIX) :]
         user_filter = repo.get_by_id(user_id, filter_id)
         if user_filter is None:
-            await query.edit_message_text(
+            await run_with_retry(lambda: query.edit_message_text(
                 "Filtro no encontrado.",
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("Volver al menú", callback_data=CB_FILTERS_CANCEL)]]
                 )
-            )
+            ))
             return
         keyboard = InlineKeyboardMarkup(
             [
@@ -195,27 +196,27 @@ async def filters_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 ]
             ]
         )
-        await query.edit_message_text(
+        await run_with_retry(lambda: query.edit_message_text(
             f"¿Eliminar este filtro?\nLímite: {user_filter.limit}",
             reply_markup=keyboard,
-        )
+        ))
         return
 
     if data.startswith(CB_FILTERS_CONFIRM_PREFIX):
         filter_id = data[len(CB_FILTERS_CONFIRM_PREFIX) :]
         deleted = repo.delete_by_id(user_id, filter_id)
         if deleted:
-            await query.edit_message_text(
+            await run_with_retry(lambda: query.edit_message_text(
                 "Filtro eliminado.",
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("Volver al menú", callback_data=CB_FILTERS_CANCEL)]]
                 )
-            )
+            ))
         else:
-            await query.edit_message_text(
+            await run_with_retry(lambda: query.edit_message_text(
                 "Filtro no encontrado o ya eliminado.",
                 reply_markup=InlineKeyboardMarkup(
                     [[InlineKeyboardButton("Volver al menú", callback_data=CB_FILTERS_CANCEL)]]
                 )
-            )
+            ))
         return
