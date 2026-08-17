@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from bot.ar_client import ARClient
+from bot.ar_client import ARClient, ARApiError
 from bot.parse import FlightQuery, RoundTripQuery, parse_query
 
 
@@ -121,3 +121,86 @@ class ARClientParamsTests(TestCase):
                 ("leg", "COR-EZE-20260916"),
             ],
         )
+
+
+class ARClientRetryTests(TestCase):
+    def test_retry_on_500(self):
+        client = ARClient(base_url="https://example.com", headers_file="/tmp/headers.json")
+        client._auth_headers = mock.AsyncMock(return_value={})
+        mock_response_500 = mock.Mock()
+        mock_response_500.status_code = 500
+        mock_response_200 = mock.Mock()
+        mock_response_200.status_code = 200
+        mock_response_200.json.return_value = {
+            "brandedOffers": {
+                "0": [
+                    {
+                        "legs": [
+                            {
+                                "segments": [
+                                    {"departure": "2026-09-04T06:55:00"}
+                                ],
+                                "stops": 0,
+                                "totalDuration": 135
+                            }
+                        ],
+                        "offers": [
+                            {
+                                "cabinClass": "Economy",
+                                "bookingClass": "P",
+                                "fareBasis": "PYSM/YSM",
+                                "seatAvailability": {"seats": 9},
+                                "fare": {"baseFare": 5000, "taxes": 63917}
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+        call_count = 0
+        async def mock_get(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return mock_response_500
+            return mock_response_200
+        with mock.patch("httpx.AsyncClient.get", new=mock_get):
+            params = [
+                ("adt", "1"),
+                ("flexDates", "true"),
+                ("flightType", "ONE_WAY"),
+                ("leg", "EZE-COR-20260916")
+            ]
+            result = asyncio.run(client._get(params))
+        self.assertEqual(call_count, 31)
+        self.assertIn("calendarOffers", result)
+        self.assertIn("0", result["calendarOffers"])
+        offers = result["calendarOffers"]["0"]
+        self.assertGreater(len(offers), 0)
+        detailed_offer = [o for o in offers if o["departure"] == "2026-09-04T06:55:00"]
+        self.assertEqual(len(detailed_offer), 1)
+        self.assertEqual(detailed_offer[0]["offerDetails"]["fare"]["baseFare"], 5000)
+        self.assertEqual(detailed_offer[0]["offerDetails"]["fare"]["taxes"], 63917)
+        self.assertEqual(detailed_offer[0]["offerDetails"]["cabinClass"], "Economy")
+
+    def test_no_retry_on_400(self):
+        client = ARClient(base_url="https://example.com", headers_file="/tmp/headers.json")
+        client._auth_headers = mock.AsyncMock(return_value={})
+        call_count_err = 0
+        async def mock_get_400(*args, **kwargs):
+            nonlocal call_count_err
+            call_count_err += 1
+            mock_resp = mock.Mock()
+            mock_resp.status_code = 400
+            return mock_resp
+        with mock.patch("httpx.AsyncClient.get", new=mock_get_400):
+            params = [
+                ("adt", "1"),
+                ("flexDates", "true"),
+                ("flightType", "ONE_WAY"),
+                ("leg", "EZE-COR-20260916")
+            ]
+            with self.assertRaises(ARApiError) as ctx:
+                asyncio.run(client._get(params))
+            self.assertEqual(ctx.exception.status_code, 400)
+            self.assertEqual(call_count_err, 1)

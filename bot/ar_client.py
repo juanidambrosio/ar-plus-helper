@@ -4,10 +4,12 @@ from typing import Any
 
 import httpx
 
+from bot.date import get_target_days, get_year_month_from_params, make_retry_leg
 from bot.parse import (
     FlightQuery,
     RoundTripQuery,
     month_leg,
+    parse_branded_offers,
 )
 from bot.token import AccessTokenProvider, TokenError
 
@@ -134,6 +136,14 @@ class ARClient:
                 status_code=response.status_code,
             )
         if response.status_code >= 400:
+            if response.status_code == 500 and any(k == "flexDates" and v == "true" for k, v in params):
+                try:
+                    return await self._retry_daily(params)
+                except Exception as retry_exc:
+                    raise ARApiError(
+                        "Error interno, intentar nuevamente mas tarde",
+                        status_code=response.status_code,
+                    ) from retry_exc
             raise ARApiError(
                 "Error interno, intentar nuevamente mas tarde",
                 status_code=response.status_code,
@@ -198,6 +208,41 @@ class ARClient:
             "1": _dedupe_offers(returns),
         }
 
+    async def _retry_daily(self, params: list[tuple[str, str]]) -> dict[str, Any]:
+        ym = get_year_month_from_params(params)
+        if not ym:
+            raise ARApiError("Error interno, intentar nuevamente mas tarde", status_code=500)
+        year, month = ym
+        target_days = get_target_days(year, month)
+        calendar_offers_accum: dict[str, list[dict[str, Any]]] = {}
+        for day in target_days:
+            retry_params = []
+            for k, v in params:
+                if k == "flexDates":
+                    retry_params.append((k, "false"))
+                elif k == "leg":
+                    retry_params.append((k, make_retry_leg(v, year, month, day)))
+                else:
+                    retry_params.append((k, v))
+            try:
+                payload = await self._get(retry_params)
+                target_date_str = f"{year:04d}-{month:02d}-{day:02d}"
+                parse_branded_offers(payload, target_date_str, calendar_offers_accum)
+            except ARApiError:
+                pass
+            except Exception:
+                pass
+        has_any_offers = False
+        for key, offers in calendar_offers_accum.items():
+            if offers:
+                has_any_offers = True
+                break
+        if not has_any_offers:
+            raise ARApiError("Error interno, intentar nuevamente mas tarde", status_code=500)
+        for key in list(calendar_offers_accum):
+            calendar_offers_accum[key] = _dedupe_offers(calendar_offers_accum[key])
+        return {"calendarOffers": calendar_offers_accum}
+
 
 def _calendar_leg(payload: dict[str, Any], leg_key: str) -> list[dict[str, Any]]:
     calendar = payload.get("calendarOffers") or {}
@@ -246,3 +291,4 @@ def _dedupe_offers(offers: list[dict[str, Any]]) -> list[dict[str, Any]]:
         seen.add(key)
         unique.append(offer)
     return unique
+

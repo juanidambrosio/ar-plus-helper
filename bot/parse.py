@@ -1,6 +1,7 @@
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from typing import Any
 
 ONE_WAY_RE = re.compile(
     r"^([A-Za-z]{3})\s+([A-Za-z]{3})\s+(\d{4})-(\d{2})$"
@@ -223,3 +224,75 @@ def display_airport(code: str) -> str:
     if code.upper() in {"EZE", "AEP"}:
         return "bue"
     return code.lower()
+
+
+def parse_branded_offers(
+    payload: dict[str, Any],
+    target_date_str: str,
+    calendar_offers_accum: dict[str, list[dict[str, Any]]],
+) -> None:
+    branded = payload.get("brandedOffers")
+    if isinstance(branded, dict):
+        for key, flights in branded.items():
+            if isinstance(flights, list):
+                if key not in calendar_offers_accum:
+                    calendar_offers_accum[key] = []
+                for flight_option in flights:
+                    if not isinstance(flight_option, dict):
+                        continue
+                    offers = flight_option.get("offers") or []
+                    lowest_offer = None
+                    for offer in offers:
+                        if not isinstance(offer, dict):
+                            continue
+                        fare = offer.get("fare") or {}
+                        base_fare = fare.get("baseFare")
+                        if base_fare is None:
+                            continue
+                        try:
+                            base_fare_val = int(base_fare)
+                            if base_fare_val <= 0:
+                                continue
+                        except (TypeError, ValueError):
+                            continue
+                        if lowest_offer is None:
+                            lowest_offer = offer
+                        else:
+                            current_lowest = lowest_offer.get("fare", {}).get("baseFare", float("inf"))
+                            if base_fare_val < current_lowest:
+                                lowest_offer = offer
+                    if lowest_offer:
+                        legs = flight_option.get("legs") or []
+                        leg_info = legs[0] if legs else {}
+                        segments = leg_info.get("segments") or []
+                        departure_time = segments[0].get("departure") if segments else None
+                        if not departure_time:
+                            departure_time = target_date_str
+                        fare = lowest_offer.get("fare") or {}
+                        base_fare = fare.get("baseFare")
+                        taxes = fare.get("taxes") or 0
+                        cabin_class = lowest_offer.get("cabinClass") or "Economy"
+                        seat_avail = lowest_offer.get("seatAvailability") or {}
+                        seats = seat_avail.get("seats") or 1
+                        booking_class = lowest_offer.get("bookingClass") or ""
+                        fare_basis = lowest_offer.get("fareBasis") or ""
+                        detailed_offer = {
+                            "departure": departure_time,
+                            "offerDetails": {
+                                "fare": {
+                                    "baseFare": base_fare,
+                                    "taxes": taxes
+                                },
+                                "cabinClass": cabin_class,
+                                "seatAvailability": {
+                                    "seats": seats
+                                },
+                                "bookingClass": booking_class,
+                                "fareBasis": fare_basis
+                            },
+                            "leg": {
+                                "stops": leg_info.get("stops") or 0,
+                                "totalDuration": leg_info.get("totalDuration") or 0
+                            }
+                        }
+                        calendar_offers_accum[key].append(detailed_offer)

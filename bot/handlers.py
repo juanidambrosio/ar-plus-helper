@@ -1,3 +1,4 @@
+import emoji
 from pathlib import Path
 
 from telegram import Update
@@ -51,6 +52,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             parse_mode="Markdown",
         )
         return
+
+    await run_with_retry(lambda: update.message.reply_text(
+        emoji.emojize(":magnifying_glass_tilted_left: Buscando las mejores ofertas...")
+    ))
 
     cfg = context.application.bot_data
     client: ARClient = cfg["ar_client"]
