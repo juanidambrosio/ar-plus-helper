@@ -90,6 +90,16 @@ def round_trip_offer_page_url(
     return f"{OFFERS_PAGE_BASE}?{urlencode(params)}"
 
 
+def format_cabin_type(cabin_class: str, booking_class: str) -> str:
+    cabin = (cabin_class or "").strip().upper()
+    booking = (booking_class or "").strip().upper()
+    if cabin == "BUSINESS":
+        if booking == "Z":
+            return "PREMIUM ECONOMY"
+        return "BUSINESS"
+    return cabin
+
+
 def checked_bags_for_offer(cabin_class: str, booking_class: str) -> int:
     cabin = (cabin_class or "").strip().upper().replace(" ", "")
     if cabin in {"PREMIUMECONOMY", "BUSINESS"}:
@@ -98,10 +108,11 @@ def checked_bags_for_offer(cabin_class: str, booking_class: str) -> int:
 
 
 def format_leg_details(offer: RankedOffer) -> str:
-    checked_bags = checked_bags_for_offer(offer.cabin_class, offer.booking_class)
+    cabin_type = format_cabin_type(offer.cabin_class, offer.booking_class)
+    checked_bags = checked_bags_for_offer(cabin_type, offer.booking_class)
     return (
         f"{offer.miles} + {format_taxes(offer.taxes)}, "
-        f"{escape(offer.cabin_class)},{format_stops(offer.stops)},"
+        f"{escape(cabin_type)},{format_stops(offer.stops)},"
         f"{format_duration(offer.duration_minutes)},"
         f"💺{offer.seats}🧳{checked_bags}"
     )

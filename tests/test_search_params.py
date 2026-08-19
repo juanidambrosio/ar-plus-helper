@@ -9,7 +9,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from bot.ar_client import ARClient, ARApiError
+from bot.format import format_cabin_type, format_leg_details
 from bot.parse import FlightQuery, RoundTripQuery, YearMonth, month_leg, parse_query
+from bot.rank import RankedOffer
 
 
 class ParseQueryTests(TestCase):
@@ -86,6 +88,41 @@ class ParseQueryTests(TestCase):
             self.assertEqual(ym_future.leg_date, "20260916")
             self.assertEqual(month_leg("EZE", "COR", ym_current), "EZE-COR-20260819")
             self.assertEqual(month_leg("EZE", "COR", ym_future), "EZE-COR-20260916")
+
+
+class FormatCabinTypeTests(TestCase):
+    def test_business_with_booking_class_z_returns_premium_economy(self):
+        self.assertEqual(format_cabin_type("BUSINESS", "Z"), "PREMIUM ECONOMY")
+        self.assertEqual(format_cabin_type("Business", "z"), "PREMIUM ECONOMY")
+
+    def test_business_with_booking_class_o_returns_business(self):
+        self.assertEqual(format_cabin_type("BUSINESS", "O"), "BUSINESS")
+        self.assertEqual(format_cabin_type("Business", "o"), "BUSINESS")
+
+    def test_business_with_other_booking_class_defaults_to_business(self):
+        self.assertEqual(format_cabin_type("BUSINESS", "P"), "BUSINESS")
+        self.assertEqual(format_cabin_type("Business", "X"), "BUSINESS")
+
+    def test_economy_returns_economy(self):
+        self.assertEqual(format_cabin_type("ECONOMY", "X"), "ECONOMY")
+        self.assertEqual(format_cabin_type("Economy", "Y"), "ECONOMY")
+
+    def test_format_leg_details_uses_resolved_cabin_type(self):
+        offer = RankedOffer(
+            departure="2026-09-01",
+            miles=20000,
+            taxes=5000,
+            cabin_class="BUSINESS",
+            stops=0,
+            duration_minutes=120,
+            seats=2,
+            booking_class="Z",
+            fare_basis="FB",
+            score=305000.0,
+            raw={},
+        )
+        details = format_leg_details(offer)
+        self.assertIn("PREMIUM ECONOMY", details)
 
 
 class ARClientParamsTests(TestCase):
