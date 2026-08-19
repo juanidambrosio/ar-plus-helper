@@ -9,7 +9,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from bot.ar_client import ARClient, ARApiError
-from bot.parse import FlightQuery, RoundTripQuery, parse_query
+from bot.parse import FlightQuery, RoundTripQuery, YearMonth, month_leg, parse_query
 
 
 class ParseQueryTests(TestCase):
@@ -50,6 +50,42 @@ class ParseQueryTests(TestCase):
 
     def test_rejects_invalid_passengers(self):
         self.assertIsNone(parse_query("EZE COR 2026-09 10"))
+
+    def test_current_month_leg_uses_current_date(self):
+        with mock.patch("bot.parse.date") as mock_date:
+            mock_date.today.return_value = date(2026, 8, 19)
+            query = FlightQuery(
+                origin="EZE",
+                destination="COR",
+                year=2026,
+                month=8,
+                passengers=1,
+            )
+            self.assertEqual(query.leg_date, "20260819")
+            self.assertEqual(query.leg, "EZE-COR-20260819")
+
+    def test_future_month_leg_uses_fixed_16(self):
+        with mock.patch("bot.parse.date") as mock_date:
+            mock_date.today.return_value = date(2026, 8, 19)
+            query = FlightQuery(
+                origin="EZE",
+                destination="COR",
+                year=2026,
+                month=9,
+                passengers=1,
+            )
+            self.assertEqual(query.leg_date, "20260916")
+            self.assertEqual(query.leg, "EZE-COR-20260916")
+
+    def test_year_month_leg_date_current_and_other_months(self):
+        with mock.patch("bot.parse.date") as mock_date:
+            mock_date.today.return_value = date(2026, 8, 19)
+            ym_current = YearMonth(2026, 8)
+            ym_future = YearMonth(2026, 9)
+            self.assertEqual(ym_current.leg_date, "20260819")
+            self.assertEqual(ym_future.leg_date, "20260916")
+            self.assertEqual(month_leg("EZE", "COR", ym_current), "EZE-COR-20260819")
+            self.assertEqual(month_leg("EZE", "COR", ym_future), "EZE-COR-20260916")
 
 
 class ARClientParamsTests(TestCase):

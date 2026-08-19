@@ -20,6 +20,9 @@ class YearMonth:
 
     @property
     def leg_date(self) -> str:
+        today = date.today()
+        if self.year == today.year and self.month == today.month:
+            return today.strftime("%Y%m%d")
         return f"{self.year:04d}{self.month:02d}16"
 
     def contains(self, d: date) -> bool:
@@ -58,7 +61,7 @@ class FlightQuery:
 
     @property
     def leg_date(self) -> str:
-        return f"{self.year:04d}{self.month:02d}16"
+        return YearMonth(self.year, self.month).leg_date
 
     @property
     def leg(self) -> str:
